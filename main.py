@@ -4,7 +4,6 @@ from PIL import Image
 from io import BytesIO
 import os
 import re
-import sys
 from PyPDF2 import PdfReader, PdfWriter
 
 # A4 300 DPI
@@ -13,9 +12,10 @@ A4_HEIGHT = 3508
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-def get_url():
-    url = input("URL: ")
-    return url
+def fetch_urls_from_file(file_name):
+    with open(file_name, 'r') as file:
+        urls = file.readlines()
+    return [url.strip() for url in urls]
 
 def fetch_webpage_content(url):
     response = requests.get(url)
@@ -28,7 +28,7 @@ def parse_html(html_content):
 def get_comic_title(soup):
     h3_tags = soup.find_all('h3')
     if len(h3_tags) > 1:
-        comic_title = h3_tags[1].get_text().strip() # Second <h3>
+        comic_title = h3_tags[1].get_text().strip()  # Second <h3>
         comic_title = re.sub(r'[\/:*?"<>|]', '-', comic_title)
     else:
         comic_title = "output"
@@ -83,18 +83,19 @@ def remove_first_and_last_page(pdf_file_path):
         writer.write(output_pdf)
 
 def main():
-    url = get_url()
-    html_content = fetch_webpage_content(url)
-    soup = parse_html(html_content)
-    comic_title = get_comic_title(soup)
+    links_file = os.path.join(script_dir, "links.txt")
+    urls = fetch_urls_from_file(links_file)
     
     output_dir = os.path.join(script_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
-    
-    pdf_file_path = create_pdf_from_images(soup, comic_title, output_dir)
-    remove_first_and_last_page(pdf_file_path)
-    
-    print(f"\nSaved as '{pdf_file_path}'.\n")
+
+    for url in urls:
+        html_content = fetch_webpage_content(url)
+        soup = parse_html(html_content)
+        comic_title = get_comic_title(soup)
+        pdf_file_path = create_pdf_from_images(soup, comic_title, output_dir)
+        remove_first_and_last_page(pdf_file_path)
+        print(f"\n'{url}', '{pdf_file_path}' saved.")
 
 if __name__ == "__main__":
     main()
